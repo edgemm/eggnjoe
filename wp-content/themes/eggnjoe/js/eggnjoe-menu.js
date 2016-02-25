@@ -26,66 +26,43 @@
     
     fireMasonry();
 
-    $( '.menu .filter a' ).click( function(e) {
-	if ( !$(this).parent( "li" ).hasClass( "nofilter" ) ) {
-	    e.preventDefault();
+    // start active slideshow if home slidshow not present
+    var activeSlideshowId = "#" + $( ".menu-slider.active" ).attr( "id" );
     
+    if ( $( ".home-slides" ).length < 1 ) triggerSlideshow( activeSlideshowId, 940, 351 );
+
+    $( '.menu .filter a' ).click( function(e) {
+
+	if ( !$(this).parent( "li" ).hasClass( "nofilter" ) ) {
+
+	    e.preventDefault();
+
 	    var menuTab = $(this).attr( "href" );	
 	    $container = $( '.menu ' + menuTab );
 	    var activeClass = "active";
-    
+
+	    // stop current slider, set class to denote stopped slideshow
+	    $( ".menu-slider.active" )
+		.addClass( "slidesjs-stopped" )
+		.find( ".slidesjs-stop" ).click();
+
+	    // remove active class from current elements, add to new
+	    $( ".tab-pane.active" ).removeClass( "active" ).fadeOut( 250 );
+	    $( ".menu-slider.active" ).removeClass( "active" ).fadeOut( 250 );
 	    $( ".menu .filter li" ).removeClass( activeClass );
 	    $(this).parent().addClass( activeClass );
     
+	    // stop current slider, start new
 	    var slider_id = $(this).attr( "data-slider-id" );
-	    
-	    $( ".tab-pane.active" ).removeClass( "active" ).fadeOut( 250 );
+	    var slider = $( ".menu-slider.slider-" + slider_id );
+	    slider.fadeIn( 250 ).addClass( "active" );
+	    triggerSlideshow( "#" + slider.attr( "id" ), 940, 351 );
+
 	    $( menuTab ).fadeIn( 250, function() {
 		$( menuTab ).addClass( "active" );
 		fireMasonry();
 	    });
     
-	//    $.ajax({
-	//	    type: "post",
-	//	    dataType: "html",
-	//	    url: "http://eggnjoe.dev/wp-admin/admin-ajax.php",
-	//	    data: {
-	//		    action: "get_menu_slider",
-	//		    slider_id: slider_id
-	//	    },
-	//	    success: function( response ) {
-	//		    $( ".menu-slider" ).html( response );
-	//   
-	//		    $(".menu-slider .nivoSlider").nivoSlider({
-	//			    effect: "fade",
-	//			    slices: 15,
-	//			    boxCols: 8,
-	//			    boxRows: 4,
-	//			    animSpeed: 500,
-	//			    pauseTime: 5000,
-	//			    startSlide: 0,
-	//			    directionNav: true,
-	//			    controlNav: false,
-	//			    controlNavThumbs: false,
-	//			    pauseOnHover: false,
-	//			    manualAdvance: false,
-	//			    prevText: "Prev",
-	//			    nextText: "Next",
-	//			    randomStart: false,
-	//			    afterLoad: function() {
-	//				$( ".menu-slider, .tab-pane.active" ).removeClass( "active" ).fadeOut( 250 );
-	//				$( ".menu-slider, " + menuTab ).fadeIn( 250, function() {
-	//				    $( menuTab ).addClass( "active" );
-	//				    fireMasonry();
-	//				});
-	//			    }
-	//		    });
-	//   
-	//	    },
-	//	    error: function(jqXHR, textStatus, errorThrown) {
-	//		    console.log(jqXHR + " :: " + textStatus + " :: " + errorThrown);
-	//	    }
-	//    });
 	}
     });
 })( jQuery );

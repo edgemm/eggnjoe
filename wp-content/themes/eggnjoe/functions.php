@@ -130,7 +130,9 @@ function eggnjoe_scripts() {
 	 wp_enqueue_script( 'jquery-masonry', get_template_directory_uri() . '/js/jquery.masonry.min.js', array(), '3.3.0', true );
 	 wp_enqueue_script( 'menu-scripts', get_template_directory_uri() . '/js/eggnjoe-menu.js', array(), '1.0.0', true );
       //}
-      
+
+	 wp_enqueue_script( 'jquery-careers', get_template_directory_uri() . '/js/employment-app.js', array('jquery'), '1.0', true );
+
     }
 }
 
@@ -145,7 +147,7 @@ function eggnjoe_styles() {
     wp_enqueue_style('fontawesome');
 
     // Theme styles
-    wp_register_style('eggnjoe-styles', get_template_directory_uri() . '/style.css', array(), '1.0', 'all');
+    wp_register_style('eggnjoe-styles', get_template_directory_uri() . '/style.css', array(), '1.0.1', 'all');
     wp_enqueue_style('eggnjoe-styles');
 
     
@@ -465,8 +467,301 @@ $menu_cat_meta->addImage( $menu_cat_prefix . "image", array( "name" => __( "Menu
 $menu_cat_meta->addText( $menu_cat_prefix . "sort", array( "name" => __( "Menu Sort Order ", "tax-meta" ), "desc" => "Order to be displayed on Menu page (ascending)", "std" => 0 ) );
 
 /*------------------------------------*\
-	ShortCode Functions
+	Employement Application
 \*------------------------------------*/
 
+// Custom Date Field Validation (exclude forcing yyyy-mm-dd format)
+
+// replace CF7 default validation
+remove_filter( 'wpcf7_validate_date', 'wpcf7_date_validation_filter', 10 );
+remove_filter( 'wpcf7_validate_date*', 'wpcf7_date_validation_filter', 10 );
+
+add_filter( 'wpcf7_validate_date', 'eggnjoe_wpcf7_date_validation_filter', 10, 2 );
+add_filter( 'wpcf7_validate_date*', 'eggnjoe_wpcf7_date_validation_filter', 10, 2 );
+
+// custom date validation (CF7 plugin -> modules -> date.php -> ln 79)
+function eggnjoe_wpcf7_date_validation_filter( $result, $tag ) {
+	$tag = new WPCF7_Shortcode( $tag );
+
+	$name = $tag->name;
+
+	$min = $tag->get_date_option( 'min' );
+	$max = $tag->get_date_option( 'max' );
+
+	$value = isset( $_POST[$name] )
+		? trim( strtr( (string) $_POST[$name], "\n", " " ) )
+		: '';
+
+	if ( $tag->is_required() && '' == $value ) {
+		$result->invalidate( $tag, wpcf7_get_message( 'invalid_required' ) );
+	} elseif ( '' != $value && ! empty( $min ) && $value < $min ) {
+		$result->invalidate( $tag, wpcf7_get_message( 'date_too_early' ) );
+	} elseif ( '' != $value && ! empty( $max ) && $max < $value ) {
+		$result->invalidate( $tag, wpcf7_get_message( 'date_too_late' ) );
+	}
+
+	return $result;
+}
+
+
+function wpcf7_add_references( $WPCF7_ContactForm ) {
+
+	// get field values for each reference
+	$submission = WPCF7_Submission::get_instance();
+	
+	$id = $WPCF7_ContactForm->id();
+		$mail = $WPCF7_ContactForm->prop( 'mail' );
+	
+	if( $submission && $id == '252' ) :
+
+		$data = $submission->get_posted_data();
+
+		// loop through references until empty
+		$i = 1;
+		
+		while( $i > 0 ) :
+
+			if( !empty( $data[ 'neverEmployed' ][0] ) ) :
+
+				$mail[ 'body' ] .= '<table class="app-2col col-container" width="100%" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td class="col-subsection" width="100%" align="center" colspan="2" valign="top" style="padding-top: 8px;padding-right: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">I have not worked in the past</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+				</tr>';
+
+				$i = 0; // end search if never worked in the past
+
+				break;
+
+			elseif( !empty( $data[ 'refEnabled' . $i ] ) ) :
+
+				// contacting reference permission needs to be array for first, string for others
+				$refPermission = ( $i > 1 ) ? $data[ "refPermission" . $i ] : $data[ "refPermission" . $i ][0];
+			
+				$mail[ 'body' ] .= '<table class="app-2col col-container" width="100%" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td class="col-subsection" width="100%" align="center" colspan="2" valign="top" style="padding-top: 8px;padding-right: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<span class="subsection-headline" style="font-size: 1.25em;font-weight: bold;">Reference # ' . $i . ' Info:</span>
+								</td>
+							</tr>
+						 </table>
+					</td>
+				</tr>
+				<tr>
+					<td class="col-2col col-alpha col-content" width="50%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<span class="label" style="font-weight: bold;">Company:</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refCompany" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+					<td class="col-2col col-alpha col-content" width="50%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<span class="label" style="font-weight: bold;">Telephone:</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refPhone" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+				</tr>
+			</table>';
+			$mail[ 'body' ] .= '<table class="col-container" width="100%" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td class="col-content" width="100%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<span class="label" style="font-weight: bold;">Address</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refAddr" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+				</tr>
+			</table>';
+			$mail[ 'body' ] .= '<table class="app-3col col-container" width="100%" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td class="col-3col col-alpha col-content" width="33%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td class="col-3col-content">
+									<span class="label" style="font-weight: bold;">City:</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refCity" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+					<td class="col-3col col-alpha col-content" width="33%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td class="col-3col-content">
+									<span class="label" style="font-weight: bold;">State:</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refState" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+					<td class="col-2col col-omega col-content" width="33%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td class="col-3col-content">
+									<span class="label" style="font-weight: bold;">Zip Code:</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refZip" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+				</tr>
+			</table>';
+			$mail[ 'body' ] .= '<table class="app-2col col-container" width="100%" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td class="col-2col col-alpha col-content" width="50%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<span class="label" style="font-weight: bold;">Start Date:</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refDateStart" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+					<td class="col-2col col-alpha col-content" width="50%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<span class="label" style="font-weight: bold;">End Date:</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refDateEnd" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+				</tr>
+			</table>';
+			$mail[ 'body' ] .= '<table class="app-2col col-container" width="100%" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td class="col-2col col-alpha col-content" width="50%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<span class="label" style="font-weight: bold;">Starting Wage:</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refWageStart" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+					<td class="col-2col col-alpha col-content" width="50%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<span class="label" style="font-weight: bold;">Ending Wage:</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refWageEnd" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+				</tr>
+			</table>';
+			$mail[ 'body' ] .= '<table class="col-container" width="100%" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td class="col-content" width="100%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<span class="label" style="font-weight: bold;">Title/Responsibilities</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refTitle" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+				</tr>
+			</table>';
+			$mail[ 'body' ] .= '<table class="col-container" width="100%" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td class="col-content" width="100%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<span class="label" style="font-weight: bold;">Reason for leaving</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refReason" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+				</tr>
+			</table>';
+			$mail[ 'body' ] .= '<table class="app-2col col-container" width="100%" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td class="col-2col col-alpha col-content" width="50%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<span class="label" style="font-weight: bold;">Direct Supervisor\'s Name:</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refSupervisorName" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+					<td class="col-2col col-alpha col-content" width="50%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<span class="label" style="font-weight: bold;">Direct Supervisor\'s Title:</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $data[ "refSupervisorTitle" . $i ] . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+				</tr>
+			</table>';
+			$mail[ 'body' ] .= '<table class="col-container" width="100%" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td class="col-content" width="100%" align="center" valign="top" style="padding-top: 15px;padding-right: 15px;padding-bottom: 15px;padding-left: 15px;">
+						 <table width="100%" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td>
+									<span class="label" style="font-weight: bold;">May we contact this reference?</span>
+									<p class="value" style="margin-top: 0px;margin-right: 0px;margin-left: 0px;margin-bottom: 9px;padding-top: 10px;font-size: 14px;line-height: 1.28571429em;color: #777775 !important;">' . $refPermission . '</p>
+								</td>
+							</tr>
+						 </table>
+					</td>
+				</tr>
+			</table>';
+
+			$i++;
+			
+			else:
+
+				$i = 0; // end search if title is empty
+
+				break;
+			
+			endif;
+
+		endwhile;
+
+	endif;
+
+	$mail[ 'body' ] .= '</td></tr></table></div>'; // final closing tags to be used after all, if any, references
+
+	$WPCF7_ContactForm->set_properties( array( 'mail' => $mail) );
+
+}
+add_action( "wpcf7_before_send_mail", "wpcf7_add_references" );
 
 ?>
